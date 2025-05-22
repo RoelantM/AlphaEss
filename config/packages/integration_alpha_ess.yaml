@@ -1257,10 +1257,11 @@ input_select:
   alphaess_helper_inverter_ac_limit:
     name: AlphaESS Inverter AC Limit
     options:
-      - 4.6kW
+      - 3kW
       - 5kW
       - 10kW
     initial: 5kW
+    icon: mdi:flash
 
 input_datetime:
   alphaess_helper_charging_period_1_start:
