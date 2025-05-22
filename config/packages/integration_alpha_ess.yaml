@@ -1218,6 +1218,11 @@ input_button:
     name: AlphaESS Force Discharge
     icon: mdi:button-pointer
 
+# Helper for Force Charge
+  alphaess_helper_force_charge:
+    name: AlphaESS Throttle Charge
+    icon: mdi:button-pointer
+
 # Helper for Throttle Charge
   alphaess_helper_throttle_charge:
     name: AlphaESS Throttle Charge
@@ -1243,8 +1248,8 @@ input_select:
       - Enable Battery Discharge Time Control
       - Enable Grid Charging Battery & Battery Discharge Time Control
 
-  alphaess_helper_discharge_power:
-    name: Force Discharge Power
+  alphaess_helper_dispatch_power:
+    name: Force Dispatch Power
     options:
       - "2 kW"
       - "5 kW"
@@ -1977,7 +1982,7 @@ automation:
           value:
             - 0
             - >
-              {% set kw = states('input_select.alphaess_helper_discharge_power').split()[0] | int %}
+              {% set kw = states('input_select.alphaess_helper_dispatch_power').split()[0] | int %}
               {{ 32000 + (kw * 1000) }}
       - service: modbus.write_register
         data:
@@ -1997,6 +2002,57 @@ automation:
           address: 0x0885  # Dispatch Mode: 0 = Default / 2 = Go
           slave: !secret alphaess_modbus_slaveId
           value: [2]
+    mode: single
+
+# Set Force Charge, here:
+#   - Cutoff SoC = 100%
+#   - Duration = 4h
+  - id: "AlphaESS_Force_Charge"
+    alias: AlphaESS Force Charge
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_button.alphaess_helper_force_charge
+    actions:
+      - action: modbus.write_register
+        data:
+          hub: modbuspvsystem
+          address: 0x0880 # Dispatch Start
+          slave: !secret alphaess_modbus_slaveId
+          value:
+            - 1
+      - action: modbus.write_register
+        data:
+          hub: modbuspvsystem
+          address: 0x0881 # Dispatch Active Power, 32000 Offset
+          slave: !secret alphaess_modbus_slaveId
+          value:
+            - 0
+            - >
+              {% set kw = states('input_select.alphaess_helper_dispatch_power').split()[0] | int %}
+              {{ 32000 - (kw * 1000) }}
+      - action: modbus.write_register
+        data:
+          hub: modbuspvsystem
+          address: 0x0886 # Dispatch SoC (0.4%/bit)
+          slave: !secret alphaess_modbus_slaveId
+          value:
+            - 250 # 100%/0.4
+      - action: modbus.write_register
+        data:
+          hub: modbuspvsystem
+          address: 0x0887 # Dispatch Time
+          slave: !secret alphaess_modbus_slaveId
+          value:
+            - 0
+            - 14400 # 4h
+      - action: modbus.write_register
+        data:
+          hub: modbuspvsystem
+          address: 0x0885 # Dispatch Mode: 0 = Default / 2 = Go
+          slave: !secret alphaess_modbus_slaveId
+          value:
+            - 2
     mode: single
 
 # Set Throttle Charge, here:

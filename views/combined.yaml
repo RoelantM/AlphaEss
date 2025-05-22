@@ -37,12 +37,12 @@ views:
             title: Charging
           - type: entities
             entities:
-              - entity: input_select.alphaess_helper_discharge_power
-                name: Choose value for discharge
+              - entity: input_select.alphaess_helper_dispatch_power
+                name: Choose value for (dis)charge
               - entity: input_button.alphaess_helper_force_discharge
                 name: Force Discharge 2h/12% SoC
-              - entity: input_button.alphaess_helper_throttle_charge
-                name: Throttle Charge 2kW/2h/100% SoC
+              - entity: input_button.alphaess_helper_force_charge
+                name: Force Charge 4h/100% SoC
               - entity: input_button.alphaess_helper_load_following
                 name: Load Following 1h
               - entity: input_button.alphaess_helper_dispatch_reset
