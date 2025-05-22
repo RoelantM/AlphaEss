@@ -107,6 +107,8 @@
 #   6.7     2025-04-15      Added AlphaESS_OfP_L1, AlphaESS_OfP_L1_Time, AlphaESS_OfP_L2, AlphaESS_OfP_L2_Time, AlphaESS_UfP_L1,
 #                           AlphaESS_UfP_L1_Time, AlphaESS_UfP_L2, AlphaESS_UfP_L2_Time
 #   6.8     2025-05-05      Adjusted AlphaESS_Excess_Export sensitivity
+#   6.9     2025-05-07      Rounded AlphaESS_Total_House_Load down to two decimal points
+#   7.0     2025-05-17      Added alphaess_helper_inverter_ac_limit and adjusted AlphaESS_Excess_Export accordingly
 #
 #################################################################################################################################
 
@@ -1231,8 +1233,8 @@ input_button:
     name: AlphaESS Dispatch Reset
     icon: mdi:button-pointer
 
-# Helper for Charging & Discharging
 input_select:
+# Helper for Charging & Discharging
   alphaess_helper_charging_discharging_settings:
     name: AlphaESS Charging / Discharging Settings
     options:
@@ -1240,7 +1242,7 @@ input_select:
       - Enable Grid Charging Battery
       - Enable Battery Discharge Time Control
       - Enable Grid Charging Battery & Battery Discharge Time Control
-  
+
   alphaess_helper_discharge_power:
     name: Force Discharge Power
     options:
@@ -1250,6 +1252,15 @@ input_select:
       - "10 kW"
     initial: "10 kW"
     icon: mdi:flash
+
+# Helper for Inverter AC Limit
+  alphaess_helper_inverter_ac_limit:
+    name: AlphaESS Inverter AC Limit
+    options:
+      - 4.6kW
+      - 5kW
+      - 10kW
+    initial: 5kW
 
 input_datetime:
   alphaess_helper_charging_period_1_start:
@@ -1943,7 +1954,6 @@ automation:
     mode: single
 
 # Set Force Discharge, here:
-#   - Power = 9kW
 #   - Cutoff SoC = 12%
 #   - Duration = 2h
   - id: "AlphaESS_Force_Discharge"
@@ -2107,13 +2117,13 @@ automation:
       - action: modbus.write_register
         data:
           hub: modbuspvsystem
-          address: 0x0881 # Dispatch Power, 32000 Offset, Inverter Limit (5000)
+          address: 0x0881 # Dispatch Power, 32000 Offset
           slave: !secret alphaess_modbus_slaveId
           value:
             - 0
             - >
-              {% if states('sensor.alphaess_current_pv_production')|int > 5000 %}
-                {{ 32000 - (states('sensor.alphaess_current_pv_production')|int - 5000) }}
+              {% if states('sensor.alphaess_current_pv_production')|int > (states('input_select.alphaess_helper_inverter_ac_limit').replace('kW','')|float * 1000)|int %}
+                {{ 32000 - (states('sensor.alphaess_current_pv_production')|int - (states('input_select.alphaess_helper_inverter_ac_limit').replace('kW','')|float * 1000)|int) }}
               {% else %}
                 32000
               {% endif %}
@@ -2328,7 +2338,7 @@ template:
     - name: AlphaESS Total House Load
       unique_id: AlphaESS_Total_House_Load
       unit_of_measurement: kWh
-      state: "{{ states('sensor.AlphaESS_Total_Energy_From_PV')|float(0) + states('sensor.AlphaESS_Total_Energy_Consumption_From_Grid_Meter')|float(0) - states('sensor.AlphaESS_Total_Energy_Feed_To_Grid_Meter')|float(0) }}"
+      state: "{{ (states('sensor.AlphaESS_Total_Energy_From_PV')|float(0) + states('sensor.AlphaESS_Total_Energy_Consumption_From_Grid_Meter')|float(0) - states('sensor.AlphaESS_Total_Energy_Feed_To_Grid_Meter')|float(0))|round(2) }}"
       # Alternative calculation:
       # state: "{{ (states('sensor.alphaess_total_energy_consumption_from_grid_meter')|float(0) - states('sensor.alphaess_total_energy_feed_to_grid_meter')|float(0) + states('sensor.alphaess_total_energy_charge_battery')|float(0) - states('sensor.alphaess_total_energy_discharge_battery')|float(0) + states('sensor.alphaess_total_energy_from_pv')|float(0))|round(2) }}"
       availability: "{{ not 'unavailable' in [ states('sensor.AlphaESS_Total_Energy_From_PV'), states('sensor.AlphaESS_Total_Energy_Consumption_From_Grid_Meter'), states('sensor.AlphaESS_Total_Energy_Feed_To_Grid_Meter') ] }}"
